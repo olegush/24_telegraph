@@ -6,7 +6,7 @@ from hmac import compare_digest
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, make_response
+from flask import Flask, render_template, request, redirect, make_response, send_from_directory
 
 
 ARTICLES_DIR = 'articles'
@@ -57,6 +57,12 @@ def get_slug_and_filepath(header, url):
         filename = '{}{}'.format(slug, ARTICLES_EXT)
         filepath = os.path.join(ARTICLES_DIR, filename)
     return slug, filepath
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 
 @app.route('/', methods=['GET', 'POST'])
