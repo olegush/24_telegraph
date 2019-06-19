@@ -114,5 +114,5 @@ def edit():
 
 
 if __name__ == "__main__":
-    app.debug = os.environ['DEBUG']krs
+    app.debug = os.environ['DEBUG']
     app.run()
