@@ -1,1 +1,1 @@
-["test", "test", "test"]
+{"header": "test", "signature": "test", "body": "test", "user_id": "e3c12dfe-9337-11e9-a6ac-503eaabe35fc"}

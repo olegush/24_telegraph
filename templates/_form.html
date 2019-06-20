@@ -1,0 +1,14 @@
+{% block form %}
+  <div class="form-group">
+    <input name="header" class="form-control" placeholder="Header" value="{{ header }}" autofocus/>
+  </div>
+  <div class="form-group">
+    <input name="signature" class="form-control" placeholder="Signature"  value="{{ signature }}"/>
+  </div>
+  <div class="form-group">
+    <textarea name="body" class="form-control" rows="10" placeholder="Your story">{{ body }}</textarea>
+    {% for error in errors %}
+      <p>{{ error }}</p>
+    {% endfor %}
+  </div>
+{% endblock %}
