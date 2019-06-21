@@ -47,7 +47,7 @@ def favicon():
                                mimetype='image/vnd.microsoft.icon')
 
 
-def clean(data):
+def clean_data(data):
     data.fromkeys(VALID_KEYS)
     return data
 
@@ -69,7 +69,7 @@ def index():
 
     # Check for empty header and valid data.
     if data['header'] == '':
-        return render_template('index.html', **clean(data), errors=[ERRORS['err']])
+        return render_template('index.html', **clean_data(data), errors=[ERRORS['err']])
 
     slug = get_slug(data['header'])
 
@@ -113,12 +113,12 @@ def article(slug):
     del(data['mode'])
 
     if request.form['mode'] == 'edit':
-        return make_response(render_template('edit.html', **clean(data), editable=editable, errors=[ERRORS['err']]))
+        return make_response(render_template('edit.html', **clean_data(data), editable=editable, errors=[ERRORS['err']]))
 
     # Save new data and redirect to article page.
     if request.form['mode'] == 'save':
         with open(filepath, encoding='utf-8', mode='w') as file:
-            file.write(json.dumps(clean(data), ensure_ascii=False))
+            file.write(json.dumps(clean_data(data), ensure_ascii=False))
         return make_response(redirect(slug, code=301))
 
 
