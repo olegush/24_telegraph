@@ -47,10 +47,9 @@ def favicon():
                                mimetype='image/vnd.microsoft.icon')
 
 
-def is_valid(data):
-    # TODO: implementation JS fields checking.
-    if len(data) == len(VALID_KEYS) and all([key in data for key in VALID_KEYS]):
-        return True
+def clean(data):
+    data.fromkeys(VALID_KEYS)
+    return data
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -69,8 +68,8 @@ def index():
     data['user_id'] = user_id
 
     # Check for empty header and valid data.
-    if data['header'] == '' or not is_valid(data):
-        return render_template('index.html', **data, errors=[ERRORS['err']])
+    if data['header'] == '':
+        return render_template('index.html', **clean(data), errors=[ERRORS['err']])
 
     slug = get_slug(data['header'])
 
@@ -113,14 +112,13 @@ def article(slug):
     data['user_id'] = user_id
     del(data['mode'])
 
-    # Check if POST data is valid.
-    if not is_valid(data):
-        return make_response(render_template('edit.html', **data, editable=editable, errors=[ERRORS['err']]))
+    if request.form['mode'] == 'edit':
+        return make_response(render_template('edit.html', **clean(data), editable=editable, errors=[ERRORS['err']]))
 
     # Save new data and redirect to article page.
     if request.form['mode'] == 'save':
         with open(filepath, encoding='utf-8', mode='w') as file:
-            file.write(json.dumps(data, ensure_ascii=False))
+            file.write(json.dumps(clean(data), ensure_ascii=False))
         return make_response(redirect(slug, code=301))
 
 
