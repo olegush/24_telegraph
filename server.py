@@ -15,7 +15,7 @@ SLUG_TRANS_MAP = {
     'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
     'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'y', 'я': 'ya'}
 COOKIE_AGE = 60*60*24*30
-VALID_KEYS = ['header', 'signature', 'body', 'user_id']
+ARTICLE_FIELDS_TO_SAVE = ['header', 'signature', 'body', 'user_id']
 # TODO: separate errors by cases
 ERRORS = {
     'err': 'Empty header or incorrect data.',
@@ -48,7 +48,7 @@ def favicon():
 
 
 def clean_data(data):
-    data.fromkeys(VALID_KEYS)
+    data.fromkeys(ARTICLE_FIELDS_TO_SAVE)
     return data
 
 
