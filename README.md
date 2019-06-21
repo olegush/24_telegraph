@@ -17,6 +17,9 @@ Put all necessary parameters to .env file.
 ```bash
 FLASK_DEBUG=TRUE
 PORT=8000
+HOST=0.0.0.0
+ARTICLES_DIR=articles_dir_name
+ARTICLES_EXT=.txt
 ```
 
 FLASK_DEBUG environment variable Flask loads by itself, but for PORT loading we should use python-dotenv package.

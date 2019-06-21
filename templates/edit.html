@@ -1,12 +1,14 @@
 {% extends "_layout.html" %}
 {% block main %}
     <div class="container">
-      <form method="POST">
-        {% include "_form.html" %}
-        <div class="form-group">
-          <input name="process" type="hidden" value="save">
-          <button class="btn btn-primary" type="submit">Save</button>
-        </div>
-      </form>
+      {% if editable %}
+        <form method="POST">
+          {% include "_form.html" %}
+          <div class="form-group">
+            <input name="mode" type="hidden" value="save">
+            <button class="btn btn-primary" type="submit">Save</button>
+          </div>
+        </form>
+      {% endif %}
     </div>
 {% endblock %}

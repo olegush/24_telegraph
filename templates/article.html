@@ -6,9 +6,9 @@
       <p>{{ body|safe }}</p>
       <p>{{ url }}</p>
       {% if editable %}
-        <form method="POST">
+        <form method="GET">
           <div class="form-group">
-            <input name="process" type="hidden" value="edit">
+            <input name="mode" type="hidden" value="edit">
             <button class="btn btn-primary" type="submit">Edit</button>
           </div>
         </form>

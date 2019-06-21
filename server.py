@@ -15,9 +15,12 @@ SLUG_TRANS_MAP = {
     'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
     'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'y', 'я': 'ya'}
 COOKIE_AGE = 60*60*24*30
+VALID_KEYS = ['header', 'signature', 'body', 'user_id']
+# TODO: separate errors by cases
 ERRORS = {
-    'empty_header': 'You must fill in header at least.',
+    'err': 'Empty header or incorrect data.',
 }
+
 
 app = Flask(__name__)
 
@@ -44,23 +47,19 @@ def favicon():
                                mimetype='image/vnd.microsoft.icon')
 
 
+def is_valid(data):
+    # TODO: implementation JS fields checking.
+    if len(data) == len(VALID_KEYS) and all([key in data for key in VALID_KEYS]):
+        return True
+
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     # TODO: implementation WYSIWYG editor and JS fields checking.
     if request.method == 'GET':
         return render_template('index.html')
     data = request.form.to_dict()
-
-    # Check for empty header.
-    # TODO: implementation JS fields checking.
-    if data['header'] == '':
-        return render_template(
-                    'index.html',
-                    **data,
-                    errors=[ERRORS['empty_header']])
-
-    slug = get_slug(data['header'])
-    resp = make_response(redirect(slug, code=301))
+    del(data['mode'])
 
     # Cookie auth process.
     user_id = request.cookies.get('user_id')
@@ -69,19 +68,28 @@ def index():
         resp.set_cookie('user_id', user_id, max_age=COOKIE_AGE)
     data['user_id'] = user_id
 
-    # Write article to file.
+    # Check for empty header and valid data.
+    if data['header'] == '' or not is_valid(data):
+        return render_template('index.html', **data, errors=[ERRORS['err']])
+
+    slug = get_slug(data['header'])
+
+    # Write article to file and redirect.
     filepath = os.path.join(articles_dir, '{}{}'.format(slug, articles_ext))
     with open(filepath, encoding='utf-8', mode='w') as file:
         file.write(json.dumps(data, ensure_ascii=False))
-
-    return resp
+    return make_response(redirect(slug, code=301))
 
 
 @app.route('/<slug>', methods=['GET', 'POST'])
 def article(slug):
+    filepath = os.path.join(articles_dir, '{}{}'.format(slug, articles_ext))
+
+    # 404 handle.
+    if not os.path.exists(filepath):
+        return make_response(render_template('404.html'))
 
     # Read article from file.
-    filepath = os.path.join(articles_dir, '{}{}'.format(slug, articles_ext))
     with open(filepath) as file:
         data = json.loads(file.read())
 
@@ -89,30 +97,31 @@ def article(slug):
     user_id = request.cookies.get('user_id')
     editable = data['user_id'] == user_id
 
-    # Url handle logic.
+    # Not auth handle.
+    if not editable and len(request.args) > 0:
+        return make_response(redirect(slug, code=301))
+
+    # GET handle:
+    # Render article page or edit page.
     if request.method == 'GET':
-        resp = make_response(render_template(
-                                'article.html',
-                                **data,
-                                editable=editable))
+        mode = request.args.get('mode')
+        template = 'edit.html' if mode == 'edit' else 'article.html'
+        return make_response(render_template(template, **data, editable=editable))
 
-    elif request.form['process'] == 'edit':
-        resp = make_response(render_template(
-                                'edit.html',
-                                **data))
+    # POST handle:
+    data = request.form.to_dict()
+    data['user_id'] = user_id
+    del(data['mode'])
 
-    elif request.form['process'] == 'save':
-        data = request.form.to_dict()
-        del(data['process'])
-        data['user_id'] = user_id
+    # Check if POST data is valid.
+    if not is_valid(data):
+        return make_response(render_template('edit.html', **data, editable=editable, errors=[ERRORS['err']]))
+
+    # Save new data and redirect to article page.
+    if request.form['mode'] == 'save':
         with open(filepath, encoding='utf-8', mode='w') as file:
             file.write(json.dumps(data, ensure_ascii=False))
-        resp = make_response(render_template(
-                                'article.html',
-                                **data,
-                                editable=editable))
-
-    return resp
+        return make_response(redirect(slug, code=301))
 
 
 if __name__ == "__main__":
