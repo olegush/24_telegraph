@@ -64,14 +64,14 @@ def index():
             user_id = str(uuid.uuid1())
             resp.set_cookie('user_id', user_id, max_age=COOKIE_AGE)
         return resp
-
+        
+    data = request.form.to_dict()
+    del(data['mode'])
 
     # Check for empty header and valid data.
     if data['header'] == '':
         return render_template('index.html', **clean_data(data), errors=[ERRORS['err']])
 
-    data = request.form.to_dict()
-    del(data['mode'])
     data['user_id'] = user_id
 
     slug = get_slug(data['header'])
