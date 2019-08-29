@@ -46,7 +46,6 @@ def favicon():
                                'favicon.ico',
                                mimetype='image/vnd.microsoft.icon')
 
-
 def clean_data(data):
     data.fromkeys(ARTICLE_FIELDS_TO_SAVE)
     return data
@@ -55,21 +54,25 @@ def clean_data(data):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     # TODO: implementation WYSIWYG editor and JS fields checking.
-    if request.method == 'GET':
-        return render_template('index.html')
-    data = request.form.to_dict()
-    del(data['mode'])
 
     # Cookie auth process.
     user_id = request.cookies.get('user_id')
-    if user_id is None:
-        user_id = str(uuid.uuid1())
-        resp.set_cookie('user_id', user_id, max_age=COOKIE_AGE)
-    data['user_id'] = user_id
+
+    if request.method == 'GET':
+        resp = make_response(render_template('index.html'))
+        if user_id is None:
+            user_id = str(uuid.uuid1())
+            resp.set_cookie('user_id', user_id, max_age=COOKIE_AGE)
+        return resp
+
 
     # Check for empty header and valid data.
     if data['header'] == '':
         return render_template('index.html', **clean_data(data), errors=[ERRORS['err']])
+
+    data = request.form.to_dict()
+    del(data['mode'])
+    data['user_id'] = user_id
 
     slug = get_slug(data['header'])
 

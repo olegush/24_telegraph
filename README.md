@@ -1,6 +1,6 @@
 # Telegraph Clone
 
-[This site](https://dvmn-task24.herokuapp.com/) is a simple service for publish anonymous articles, like telegra.ph. Any user can creates an article and gets unique user-friendly url for it. User can edits articles without login and password (authorization works with cookies). Every article stores in txt-file.
+[This site](https://my-telegraph.herokuapp.com/) is a simple service for publish anonymous articles, like telegra.ph. Any user can creates an article and gets unique user-friendly url for it. User can edits articles without login and password (authorization works with cookies). Every article stores in txt-file.
 
 
 # How to Install
