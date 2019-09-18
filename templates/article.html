@@ -2,7 +2,7 @@
 {% block main %}
     <div class="container">
       <h2>{{ header }}</h2>
-      <p><em>{{ signature }}</em></p>
+      <p><em>by {{ signature }}</em></p>
       <p>{{ body|safe }}</p>
       <p>{{ url }}</p>
       {% if editable %}
