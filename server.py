@@ -32,11 +32,11 @@ def get_slug(header):
     slug = '{}_1'.format(
                     ''.join([SLUG_TRANS_MAP[a] if a in SLUG_TRANS_MAP else a for a in slug])
                     )[:MAX_SLUG_LENGTH]
-    filename = '{}{}'.format(slug, articles_ext)
+    filename = f'{slug}{articles_ext}'
     while os.path.exists(os.path.join(articles_dir, filename)):
         filename_base, filename_num = filename[:-len(articles_ext)].split('_')
-        slug = '{}_{}'.format(filename_base, int(filename_num) + 1)
-        filename = '{}{}'.format(slug, articles_ext)
+        slug = f'{filename_base}_{int(filename_num) + 1}'
+        filename = f'{slug}{articles_ext}'
     return slug
 
 
@@ -51,12 +51,17 @@ def clean_data(data):
     return data
 
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    # TODO: implementation WYSIWYG editor and JS fields checking.
+def auth_user(func):
+    def wrapper(*args, **kwargs):
+        user_id = request.cookies.get('user_id')
+        return func(user_id, *args, **kwargs)
+    wrapper.__name__ = func.__name__
+    return wrapper
 
-    # Cookie auth process.
-    user_id = request.cookies.get('user_id')
+
+@app.route('/', methods=['GET', 'POST'])
+@auth_user
+def index(user_id):
 
     if request.method == 'GET':
         resp = make_response(render_template('index.html'))
@@ -64,9 +69,9 @@ def index():
             user_id = str(uuid.uuid1())
             resp.set_cookie('user_id', user_id, max_age=COOKIE_AGE)
         return resp
-        
+
     data = request.form.to_dict()
-    del(data['mode'])
+    #del(data['mode'])
 
     # Check for empty header and valid data.
     if data['header'] == '':
@@ -77,15 +82,16 @@ def index():
     slug = get_slug(data['header'])
 
     # Write article to file and redirect.
-    filepath = os.path.join(articles_dir, '{}{}'.format(slug, articles_ext))
+    filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
     with open(filepath, encoding='utf-8', mode='w') as file:
         file.write(json.dumps(data, ensure_ascii=False))
     return make_response(redirect(slug, code=301))
 
 
 @app.route('/<slug>', methods=['GET', 'POST'])
-def article(slug):
-    filepath = os.path.join(articles_dir, '{}{}'.format(slug, articles_ext))
+@auth_user
+def article(user_id, slug):
+    filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
 
     # 404 handle.
     if not os.path.exists(filepath):
@@ -95,8 +101,6 @@ def article(slug):
     with open(filepath) as file:
         data = json.loads(file.read())
 
-    # Cookie auth process.
-    user_id = request.cookies.get('user_id')
     editable = data['user_id'] == user_id
 
     # Not auth handle.
@@ -112,23 +116,26 @@ def article(slug):
 
     # POST handle:
     data = request.form.to_dict()
+    #print(data)
     data['user_id'] = user_id
-    del(data['mode'])
+    #del(data['mode'])
+    mode = request.form['mode']
 
-    if request.form['mode'] == 'edit':
+    if mode == 'edit':
         return make_response(render_template('edit.html', **clean_data(data), editable=editable, errors=[ERRORS['err']]))
-
-    # Save new data and redirect to article page.
-    if request.form['mode'] == 'save':
+    elif request.form['mode'] == 'save':
         with open(filepath, encoding='utf-8', mode='w') as file:
             file.write(json.dumps(clean_data(data), ensure_ascii=False))
         return make_response(redirect(slug, code=301))
+    else:
+        return make_response(redirect(slug, code=301))
+
 
 
 if __name__ == "__main__":
     load_dotenv()
     host = os.environ.get('HOST')
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5500))
     articles_dir = os.environ.get('ARTICLES_DIR')
     articles_ext = os.environ.get('ARTICLES_EXT')
     app.run(host=host, port=port)
