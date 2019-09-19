@@ -5,7 +5,7 @@ import uuid
 from datetime import timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, session, render_template, request, redirect, send_from_directory, url_for
+from flask import Flask, session, render_template, request, redirect, send_from_directory, url_for, abort
 
 
 MAX_SLUG_LENGTH = 100
@@ -59,55 +59,43 @@ def auth():
         app.permanent_session_lifetime = timedelta(days=SESSION_DAYS)
 
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-
-    if request.method == 'GET':
-        return render_template('index.html')
-
-    data = request.form.to_dict()
-
-    # Check for empty header and valid data.
-    if data['header'] == '':
-        return render_template('index.html', **clean_data(data), errors=[ERRORS['err']])
-
-    data['user_id'] = session.get("user_id")
-
-    slug = get_slug(data['header'])
-
-    # Write article to file and redirect.
+def write_article(slug, data):
     filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
     with open(filepath, encoding='utf-8', mode='w') as file:
-        file.write(json.dumps(data, ensure_ascii=False))
+        file.write(json.dumps(clean_data(data), ensure_ascii=False))
+
+
+def read_article(slug):
+    filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
+    with open(filepath) as file:
+        return json.loads(file.read())
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'GET':
+        return render_template('index.html')
+    data = request.form.to_dict()
+    if data['header'] == '':
+        return render_template('index.html', **clean_data(data), errors=[ERRORS['err']])
+    data['user_id'] = session.get("user_id")
+    slug = get_slug(data['header'])
+    write_article(slug, data)
     return redirect(url_for('article', slug=slug))
 
 
 @app.route('/<slug>', methods=['GET', 'POST'])
 def article(slug):
-    filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
-
-    # 404 handle.
-    if not os.path.exists(filepath):
-        return render_template('404.html')
-
-    # Read article from file.
-    with open(filepath) as file:
-        data = json.loads(file.read())
-
+    try:
+        data = read_article(slug)
+    except FileNotFoundError:
+        abort(404)
     editable = data['user_id'] == session.get("user_id")
-
-    # Not auth handle.
     if not editable and len(request.args) > 0:
         return redirect(url_for('article', slug=slug))
-
-    # GET handle:
-    # Render article page or edit page.
     if request.method == 'GET':
         mode = request.args.get('mode')
         template = 'edit.html' if mode == 'edit' else 'article.html'
         return render_template(template, **data, editable=editable)
-
-    # POST handle:
     data = request.form.to_dict()
     data['user_id'] = session.get("user_id")
 
@@ -116,8 +104,7 @@ def article(slug):
 
     # Save new data and redirect to article page.
     if request.form['mode'] == 'save':
-        with open(filepath, encoding='utf-8', mode='w') as file:
-            file.write(json.dumps(clean_data(data), ensure_ascii=False))
+        write_article(slug, data)
         return redirect(url_for('article', slug=slug))
 
 
