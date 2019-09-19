@@ -26,6 +26,13 @@ app = Flask(__name__)
 app.secret_key = b'fHI#56fw3h968tfbv'
 
 
+@app.before_request
+def auth():
+    if 'user_id' not in session:
+        session['user_id'] = uuid.uuid1().hex
+        app.permanent_session_lifetime = timedelta(days=SESSION_DAYS)
+
+
 def get_slug(header):
     # Get unique, user-friendly slug for url.
     slug = re.sub('[^\w ]+', '', header).strip().lower()
@@ -41,71 +48,72 @@ def get_slug(header):
     return slug
 
 
+def clean_data(data):
+    data.fromkeys(ARTICLE_FIELDS_TO_SAVE)
+    return data
+
+
+def read_article(slug):
+    try:
+        filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
+        with open(filepath) as file:
+            return json.loads(file.read())
+    except FileNotFoundError:
+        abort(404)
+
+
+def write_article(slug, data, session):
+    data['user_id'] = session.get('user_id')
+    data['slug'] = slug
+    filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
+    with open(filepath, encoding='utf-8', mode='w') as file:
+        file.write(json.dumps(clean_data(data), ensure_ascii=False))
+
+
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
                                'favicon.ico',
                                mimetype='image/vnd.microsoft.icon')
 
-def clean_data(data):
-    data.fromkeys(ARTICLE_FIELDS_TO_SAVE)
-    return data
-
-
-@app.before_request
-def auth():
-    if 'user_id' not in session:
-        session['user_id'] = uuid.uuid1().hex
-        app.permanent_session_lifetime = timedelta(days=SESSION_DAYS)
-
-
-def write_article(slug, data):
-    filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
-    with open(filepath, encoding='utf-8', mode='w') as file:
-        file.write(json.dumps(clean_data(data), ensure_ascii=False))
-
-
-def read_article(slug):
-    filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
-    with open(filepath) as file:
-        return json.loads(file.read())
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'GET':
         return render_template('index.html')
-    data = request.form.to_dict()
-    if data['header'] == '':
-        return render_template('index.html', **clean_data(data), errors=[ERRORS['err']])
-    data['user_id'] = session.get("user_id")
-    slug = get_slug(data['header'])
-    write_article(slug, data)
+    form_content = request.form.to_dict()
+    if form_content['header'] == '':
+        return render_template('index.html', **clean_data(form_content), errors=[ERRORS['err']])
+    slug = get_slug(form_content['header'])
+    write_article(slug, form_content, session)
     return redirect(url_for('article', slug=slug))
 
 
-@app.route('/<slug>', methods=['GET', 'POST'])
+@app.route('/<slug>', methods=['GET'])
 def article(slug):
-    try:
-        data = read_article(slug)
-    except FileNotFoundError:
-        abort(404)
-    editable = data['user_id'] == session.get("user_id")
+    file_content = read_article(slug)
+    editable = file_content['user_id'] == session.get('user_id')
     if not editable and len(request.args) > 0:
         return redirect(url_for('article', slug=slug))
     if request.method == 'GET':
         mode = request.args.get('mode')
         template = 'edit.html' if mode == 'edit' else 'article.html'
-        return render_template(template, **data, editable=editable)
-    data = request.form.to_dict()
-    data['user_id'] = session.get("user_id")
+        return render_template(template, **file_content, editable=editable)
 
-    if request.form['mode'] == 'edit':
-        return render_template('edit.html', **clean_data(data), editable=editable, errors=[ERRORS['err']])
 
-    # Save new data and redirect to article page.
-    if request.form['mode'] == 'save':
-        write_article(slug, data)
+@app.route('/<slug>/edit', methods=['POST', 'GET'])
+def edit_article(slug):
+    if request.form.get('edit'):
+        file_content = read_article(slug)
+        return render_template('edit.html', **clean_data(file_content))
+    form_content = request.form.to_dict()
+    write_article(slug, form_content, session)
+    if request.form.get('save'):
+        return render_template('edit.html', **clean_data(form_content))
+    elif request.form.get('publish'):
         return redirect(url_for('article', slug=slug))
+    else:
+        abort(403)
 
 
 if __name__ == "__main__":

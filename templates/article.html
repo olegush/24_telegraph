@@ -2,14 +2,15 @@
 {% block main %}
     <div class="container">
       <h2>{{ header }}</h2>
-      <p><em>by {{ signature }}</em></p>
+      {% if signature %}
+        <p><em>by {{ signature }}</em></p>
+      {% endif %}
       <p>{{ body|safe }}</p>
       <p>{{ url }}</p>
       {% if editable %}
-        <form method="GET">
+        <form method="POST" action="{{ slug }}/edit">
           <div class="form-group">
-            <input name="mode" type="hidden" value="edit">
-            <button class="btn btn-primary" type="submit">Edit</button>
+            <button class="btn btn-primary" name="edit" value="edit" type="submit">Edit</button>
           </div>
         </form>
       {% endif %}
