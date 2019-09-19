@@ -5,7 +5,7 @@ import uuid
 from datetime import timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, session, render_template, request, redirect, make_response, send_from_directory
+from flask import Flask, session, render_template, request, redirect, send_from_directory, url_for
 
 
 MAX_SLUG_LENGTH = 100
@@ -17,7 +17,6 @@ SLUG_TRANS_MAP = {
     'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'y', 'я': 'ya'}
 SESSION_DAYS = 90
 ARTICLE_FIELDS_TO_SAVE = ['header', 'signature', 'body', 'user_id']
-# TODO: separate errors by cases
 ERRORS = {
     'err': 'Empty header or incorrect data.',
 }
@@ -64,11 +63,7 @@ def auth():
 def index():
 
     if request.method == 'GET':
-        resp = make_response(render_template('index.html'))
-    #    if user_id is None:
-    #        user_id = str(uuid.uuid1())
-    #        resp.set_cookie('user_id', user_id, max_age=COOKIE_AGE)
-        return resp
+        return render_template('index.html')
 
     data = request.form.to_dict()
 
@@ -84,7 +79,7 @@ def index():
     filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
     with open(filepath, encoding='utf-8', mode='w') as file:
         file.write(json.dumps(data, ensure_ascii=False))
-    return make_response(redirect(slug, code=301))
+    return redirect(url_for('article', slug=slug))
 
 
 @app.route('/<slug>', methods=['GET', 'POST'])
@@ -93,7 +88,7 @@ def article(slug):
 
     # 404 handle.
     if not os.path.exists(filepath):
-        return make_response(render_template('404.html'))
+        return render_template('404.html')
 
     # Read article from file.
     with open(filepath) as file:
@@ -103,27 +98,27 @@ def article(slug):
 
     # Not auth handle.
     if not editable and len(request.args) > 0:
-        return make_response(redirect(slug, code=301))
+        return redirect(url_for('article', slug=slug))
 
     # GET handle:
     # Render article page or edit page.
     if request.method == 'GET':
         mode = request.args.get('mode')
         template = 'edit.html' if mode == 'edit' else 'article.html'
-        return make_response(render_template(template, **data, editable=editable))
+        return render_template(template, **data, editable=editable)
 
     # POST handle:
     data = request.form.to_dict()
     data['user_id'] = session.get("user_id")
 
     if request.form['mode'] == 'edit':
-        return make_response(render_template('edit.html', **clean_data(data), editable=editable, errors=[ERRORS['err']]))
+        return render_template('edit.html', **clean_data(data), editable=editable, errors=[ERRORS['err']])
 
     # Save new data and redirect to article page.
     if request.form['mode'] == 'save':
         with open(filepath, encoding='utf-8', mode='w') as file:
             file.write(json.dumps(clean_data(data), ensure_ascii=False))
-        return make_response(redirect(slug, code=301))
+        return redirect(url_for('article', slug=slug))
 
 
 if __name__ == "__main__":
