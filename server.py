@@ -2,9 +2,10 @@ import os
 import re
 import json
 import uuid
+from datetime import timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, make_response, send_from_directory
+from flask import Flask, session, render_template, request, redirect, make_response, send_from_directory
 
 
 MAX_SLUG_LENGTH = 100
@@ -14,7 +15,7 @@ SLUG_TRANS_MAP = {
     'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
     'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
     'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'y', 'я': 'ya'}
-COOKIE_AGE = 60*60*24*30
+SESSION_DAYS = 90
 ARTICLE_FIELDS_TO_SAVE = ['header', 'signature', 'body', 'user_id']
 # TODO: separate errors by cases
 ERRORS = {
@@ -23,6 +24,7 @@ ERRORS = {
 
 
 app = Flask(__name__)
+app.secret_key = b'fHI#56fw3h968tfbv'
 
 
 def get_slug(header):
@@ -51,33 +53,30 @@ def clean_data(data):
     return data
 
 
-def auth_user(func):
-    def wrapper(*args, **kwargs):
-        user_id = request.cookies.get('user_id')
-        return func(user_id, *args, **kwargs)
-    wrapper.__name__ = func.__name__
-    return wrapper
+@app.before_request
+def auth():
+    if 'user_id' not in session:
+        session['user_id'] = uuid.uuid1().hex
+        app.permanent_session_lifetime = timedelta(days=SESSION_DAYS)
 
 
 @app.route('/', methods=['GET', 'POST'])
-@auth_user
-def index(user_id):
+def index():
 
     if request.method == 'GET':
         resp = make_response(render_template('index.html'))
-        if user_id is None:
-            user_id = str(uuid.uuid1())
-            resp.set_cookie('user_id', user_id, max_age=COOKIE_AGE)
+    #    if user_id is None:
+    #        user_id = str(uuid.uuid1())
+    #        resp.set_cookie('user_id', user_id, max_age=COOKIE_AGE)
         return resp
 
     data = request.form.to_dict()
-    #del(data['mode'])
 
     # Check for empty header and valid data.
     if data['header'] == '':
         return render_template('index.html', **clean_data(data), errors=[ERRORS['err']])
 
-    data['user_id'] = user_id
+    data['user_id'] = session.get("user_id")
 
     slug = get_slug(data['header'])
 
@@ -89,8 +88,7 @@ def index(user_id):
 
 
 @app.route('/<slug>', methods=['GET', 'POST'])
-@auth_user
-def article(user_id, slug):
+def article(slug):
     filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
 
     # 404 handle.
@@ -101,7 +99,7 @@ def article(user_id, slug):
     with open(filepath) as file:
         data = json.loads(file.read())
 
-    editable = data['user_id'] == user_id
+    editable = data['user_id'] == session.get("user_id")
 
     # Not auth handle.
     if not editable and len(request.args) > 0:
@@ -116,20 +114,16 @@ def article(user_id, slug):
 
     # POST handle:
     data = request.form.to_dict()
-    #print(data)
-    data['user_id'] = user_id
-    #del(data['mode'])
-    mode = request.form['mode']
+    data['user_id'] = session.get("user_id")
 
-    if mode == 'edit':
+    if request.form['mode'] == 'edit':
         return make_response(render_template('edit.html', **clean_data(data), editable=editable, errors=[ERRORS['err']]))
-    elif request.form['mode'] == 'save':
+
+    # Save new data and redirect to article page.
+    if request.form['mode'] == 'save':
         with open(filepath, encoding='utf-8', mode='w') as file:
             file.write(json.dumps(clean_data(data), ensure_ascii=False))
         return make_response(redirect(slug, code=301))
-    else:
-        return make_response(redirect(slug, code=301))
-
 
 
 if __name__ == "__main__":
