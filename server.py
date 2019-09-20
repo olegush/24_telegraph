@@ -1,16 +1,14 @@
 import os
-import re
-import json
 import uuid
 from datetime import timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, session, render_template, request, redirect, send_from_directory, url_for, abort
-from slugify import slugify
+from flask import (Flask, session, render_template, request, redirect, 
+                    send_from_directory, url_for, abort)
 
-MAX_SLUG_LENGTH = 100
+from article_tools import get_slug, clean_data, read_article, write_article
+
 SESSION_DAYS = 90
-ARTICLE_FIELDS_TO_SAVE = ['header', 'signature', 'body', 'user_id']
 ERRORS = {
     'err': 'Empty header or incorrect data.',
 }
@@ -27,38 +25,6 @@ def auth():
         app.permanent_session_lifetime = timedelta(days=SESSION_DAYS)
 
 
-def get_slug(header):
-    slug = slugify(header, max_length=MAX_SLUG_LENGTH) + '_1'
-    filename = f'{slug}{articles_ext}'
-    while os.path.exists(os.path.join(articles_dir, filename)):
-        filename_base, filename_num = filename[:-len(articles_ext)].split('_')
-        slug = f'{filename_base}_{int(filename_num) + 1}'
-        filename = f'{slug}{articles_ext}'
-    return slug
-
-
-def clean_data(data):
-    data.fromkeys(ARTICLE_FIELDS_TO_SAVE)
-    return data
-
-
-def read_article(slug):
-    try:
-        filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
-        with open(filepath) as file:
-            return json.loads(file.read())
-    except FileNotFoundError:
-        abort(404)
-
-
-def write_article(slug, data, session):
-    data['user_id'] = session.get('user_id')
-    data['slug'] = slug
-    filepath = os.path.join(articles_dir, f'{slug}{articles_ext}')
-    with open(filepath, encoding='utf-8', mode='w') as file:
-        file.write(json.dumps(clean_data(data), ensure_ascii=False))
-
-
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
@@ -70,35 +36,30 @@ def favicon():
 def index():
     if request.method == 'GET':
         return render_template('index.html')
-    form_content = request.form.to_dict()
-    if form_content['header'] == '':
-        return render_template('index.html', **clean_data(form_content), errors=[ERRORS['err']])
-    slug = get_slug(form_content['header'])
-    write_article(slug, form_content, session)
+    form_data = request.form.to_dict()
+    if form_data['header'] == '':
+        return render_template('index.html', **clean_data(form_data), errors=[ERRORS['err']])
+    slug = get_slug(form_data['header'])
+    write_article(slug, form_data, session)
     return redirect(url_for('article', slug=slug))
 
 
 @app.route('/<slug>', methods=['GET'])
 def article(slug):
-    file_content = read_article(slug)
-    editable = file_content['user_id'] == session.get('user_id')
-    if not editable and len(request.args) > 0:
-        return redirect(url_for('article', slug=slug))
-    if request.method == 'GET':
-        mode = request.args.get('mode')
-        template = 'edit.html' if mode == 'edit' else 'article.html'
-        return render_template(template, **file_content, editable=editable)
+    file_data = read_article(slug)
+    editable = file_data['user_id'] == session.get('user_id')
+    return render_template('article.html', **file_data, editable=editable)
 
 
 @app.route('/<slug>/edit', methods=['POST', 'GET'])
 def edit_article(slug):
     if request.form.get('edit'):
-        file_content = read_article(slug)
-        return render_template('edit.html', **clean_data(file_content))
-    form_content = request.form.to_dict()
-    write_article(slug, form_content, session)
+        file_data = read_article(slug)
+        return render_template('edit.html', **clean_data(file_data))
+    form_data = request.form.to_dict()
+    write_article(slug, form_data, session)
     if request.form.get('save'):
-        return render_template('edit.html', **clean_data(form_content))
+        return render_template('edit.html', **clean_data(form_data))
     elif request.form.get('publish'):
         return redirect(url_for('article', slug=slug))
     else:
@@ -109,6 +70,4 @@ if __name__ == "__main__":
     load_dotenv()
     host = os.environ.get('HOST')
     port = int(os.environ.get('PORT', 5500))
-    articles_dir = os.environ.get('ARTICLES_DIR')
-    articles_ext = os.environ.get('ARTICLES_EXT')
     app.run(host=host, port=port)
