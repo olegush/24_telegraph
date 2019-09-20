@@ -6,15 +6,9 @@ from datetime import timedelta
 
 from dotenv import load_dotenv
 from flask import Flask, session, render_template, request, redirect, send_from_directory, url_for, abort
-
+from slugify import slugify
 
 MAX_SLUG_LENGTH = 100
-SLUG_TRANS_MAP = {
-    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
-    'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-    'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-    'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
-    'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'y', 'я': 'ya'}
 SESSION_DAYS = 90
 ARTICLE_FIELDS_TO_SAVE = ['header', 'signature', 'body', 'user_id']
 ERRORS = {
@@ -34,12 +28,7 @@ def auth():
 
 
 def get_slug(header):
-    # Get unique, user-friendly slug for url.
-    slug = re.sub('[^\w ]+', '', header).strip().lower()
-    slug = re.sub('[ ]+', '-', slug)
-    slug = '{}_1'.format(
-                    ''.join([SLUG_TRANS_MAP[a] if a in SLUG_TRANS_MAP else a for a in slug])
-                    )[:MAX_SLUG_LENGTH]
+    slug = slugify(header, max_length=MAX_SLUG_LENGTH) + '_1'
     filename = f'{slug}{articles_ext}'
     while os.path.exists(os.path.join(articles_dir, filename)):
         filename_base, filename_num = filename[:-len(articles_ext)].split('_')
