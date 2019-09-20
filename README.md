@@ -1,6 +1,6 @@
 # Telegraph Clone
 
-[This site](https://my-telegraph.herokuapp.com/) is a simple service for publish anonymous articles, like telegra.ph. Any user can creates an article and gets unique user-friendly url for it. User can edits articles without login and password (authorization works with cookies). Every article stores in txt-file.
+[This site](https://telegraph.devbuzz.ru/) is a simple service for publish anonymous articles, like telegra.ph. Any user can creates an article and gets unique user-friendly url for it. User can edits articles without login and password (authorization works with sessions). Every article stores in txt-file.
 
 
 # How to Install
@@ -18,6 +18,7 @@ Put all necessary parameters to .env file.
 FLASK_DEBUG=TRUE
 PORT=8000
 HOST=0.0.0.0
+SECRET_KEY=your_secret_key
 ARTICLES_DIR=articles_dir_name
 ARTICLES_EXT=.txt
 ```
