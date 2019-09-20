@@ -3,7 +3,7 @@ import uuid
 from datetime import timedelta
 
 from dotenv import load_dotenv
-from flask import (Flask, session, render_template, request, redirect, 
+from flask import (Flask, session, render_template, request, redirect,
                     send_from_directory, url_for, abort)
 
 from article_tools import get_slug, clean_data, read_article, write_article
@@ -15,7 +15,7 @@ ERRORS = {
 
 
 app = Flask(__name__)
-app.secret_key = b'fHI#56fw3h968tfbv'
+app.secret_key = os.environ.get('SECRET_KEY')
 
 
 @app.before_request
